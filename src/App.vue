@@ -1,6 +1,8 @@
 <script setup>
 import { ref } from 'vue'
 import ConfettiExplosion from 'vue-confetti-explosion'
+import Setting from '@/icons/Setting.vue'
+import Close from '@/icons/Close.vue'
 
 // Shuffle array function
 const shuffleArray = (array) => {
@@ -16,12 +18,19 @@ const shuffleArray = (array) => {
 const generateWinners = () => {
   let winnersSet = new Set(forcedWinners.value ? forcedWinners.value.split(',').map(Number) : [])
   let loserSet = new Set(forcedLosers.value ? forcedLosers.value.split(',').map(Number) : [])
+  let maxIterations = 1000
+  let iterations = 0
 
-  while (winnersSet.size < numbersOfRolls.value) {
+  while (winnersSet.size < numbersOfRolls.value && iterations < maxIterations) {
     const randomNum = Math.floor(Math.random() * numbersOfParticipants.value) + 1
     if (randomNum >= startWinners.value && !loserSet.has(randomNum)) {
       winnersSet.add(randomNum)
     }
+    iterations++
+  }
+
+  if (iterations >= maxIterations) {
+    console.warn('Max iterations reached, some winners might be missing.')
   }
 
   return shuffleArray(Array.from(winnersSet))
@@ -75,6 +84,11 @@ const drawNumber = () => {
   displayNextNumber()
   confetti.value = false
 }
+
+// Close overlay
+const toggleOverlay = () => {
+  isSettingsOpen.value = !isSettingsOpen.value
+}
 </script>
 
 <template>
@@ -103,43 +117,49 @@ const drawNumber = () => {
       :stageWidth="2400"
     />
 
-    <button @click.prevent="isSettingsOpen = !isSettingsOpen" class="settingButton">
-      Setttings
+    <button @click="toggleOverlay" class="settingButton">
+      <Setting />
     </button>
   </div>
 
   <Transition>
-    <div class="controls" v-if="isSettingsOpen">
-      <label for="">
-        Nombre de participants
-        <input type="number" v-model="numbersOfParticipants" />
-      </label>
+    <div>
+      <div class="overlay" v-if="isSettingsOpen" @click="toggleOverlay"></div>
+      <div class="controls" v-if="isSettingsOpen">
+        <Close class="close" @click="toggleOverlay" />
+        <label for="">
+          Nombre de participants
+          <input type="number" v-model="numbersOfParticipants" />
+        </label>
 
-      <label for="">
-        Nombre de lots
-        <input type="number" v-model="numbersOfRolls" />
-      </label>
+        <label for="">
+          Nombre de lots
+          <input type="number" v-model="numbersOfRolls" />
+        </label>
 
-      <label for="">
-        Gagnants forcés
-        <input type="text" v-model="forcedWinners" />
-      </label>
+        <label for="">
+          Gagnants forcés<span>Séparés par des virgules</span>
+          <input type="text" v-model="forcedWinners" />
+        </label>
 
-      <label for="">
-        Perdants forcés
-        <input type="text" v-model="forcedLosers" />
-      </label>
+        <label for="">
+          Perdants forcés<span>Séparés par des virgules</span>
+          <input type="text" v-model="forcedLosers" />
+        </label>
 
-      <label for="">
-        Début gagnants
-        <input type="number" v-model="startWinners" />
-      </label>
+        <label for="">
+          Début gagnants<span>Le nombre renseigné pourra gagner</span>
+          <input type="number" v-model="startWinners" />
+        </label>
 
-      <button @click="setWinners">Calculer les gagnants</button>
+        <button @click="setWinners">Calculer les gagnants</button>
 
-      <p>Les gagants sont : {{ winners }}</p>
-      <p>Le gagnants restants sont : {{ winnersRestants }}</p>
-      <p>Ont déjà gagné : {{ haveWin }}</p>
+        <div class="overlay__infos">
+          <p>Les gagants sont : {{ winners }}</p>
+          <p v-if="winnersRestants.length > 0">Le gagnants restants sont : {{ winnersRestants }}</p>
+          <p v-if="haveWin.length > 0">Ont déjà gagné : {{ haveWin }}</p>
+        </div>
+      </div>
     </div>
   </Transition>
 </template>
@@ -149,7 +169,7 @@ const drawNumber = () => {
 
 body,
 html {
-  //overflow: hidden;
+  overflow: hidden;
 }
 
 * {
@@ -191,7 +211,7 @@ html {
     top: 70%;
     transform: translateX(-50%);
     z-index: 2;
-    font-size: 1.5em;
+    font-size: 1.2vw;
     padding: 0.5em 1.5em;
     background-color: white;
     border-radius: 2em;
@@ -210,10 +230,89 @@ html {
   }
 }
 
+.controls {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  background-color: white;
+  transform: translateX(-50%) translateY(-50%);
+  z-index: 200;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 0 1rem rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 1rem;
+  font-family: Verdana, Geneva, Tahoma, sans-serif;
+  font-size: 14px;
+  width: 40vw;
+
+  label {
+    input {
+      display: block;
+      margin-top: 0.35em;
+    }
+
+    span {
+      font-size: 12px;
+      color: #959595;
+      padding-left: 1em;
+    }
+  }
+
+  button {
+    padding: 0.5em 1em;
+    background-color: #0056a3;
+    color: white;
+    border: 0;
+    border-radius: 0.5em;
+    cursor: pointer;
+    justify-self: baseline;
+  }
+}
+
+.overlay {
+  background-color: rgba(#0056a3, 0.5);
+  filter: blur(6px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  cursor: pointer;
+  z-index: 100;
+
+  &__infos {
+    display: grid;
+    gap: 0.8rem;
+
+    p {
+      font-size: 12px;
+    }
+  }
+}
+
+.close {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  height: 2rem;
+  width: 2rem;
+  fill: grey;
+}
+
 .settingButton {
   position: fixed;
   bottom: 2rem;
   right: 2rem;
+  background: none;
+  border: 0;
+  cursor: pointer;
+
+  svg {
+    height: 1.5rem;
+    width: 1.5rem;
+    fill: lightgrey;
+  }
 }
 
 .v-enter-active,
